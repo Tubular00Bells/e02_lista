@@ -21,38 +21,28 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   final _formKey = GlobalKey<FormState>();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   var _itemController = TextEditingController();
   var _priceController = TextEditingController();
   var _amountController = TextEditingController();
+  final _scrollController = ScrollController();
   List _lista = [];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: Text('MO-NA-D-2 ~ Shopping Forgery'),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.share),
-            onPressed: (){}
-           /* onPressed: () async {
-              var itens =
-                  _lista.reduce((value, element) => value + '\n' + element);
-              SocialShare.shareWhatsapp("Lista de Compras:\n" + itens)
-                  .then((data) {
-                //print(data);
-              });
-            },*/
-          )
-        ],
       ),
       body: Scrollbar(
-        child: ListView(//test
+        child: ListView(
+          controller: _scrollController,
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             Image.asset('images/title.png',),
-            for (int i = 0; i < _lista.length; i++)//{
+            for (int i = 0; i < _lista.length; i++)
               ListTile(
                   leading: ExcludeSemantics(
                     child: CircleAvatar(child: Text('${i + 1}')),
@@ -62,62 +52,75 @@ class _MainAppState extends State<MainApp> {
                     children: [
                       _listItemName(i),
                       _listItemPrice(i),
-                      //_listPriceTextBox(),
-                      //_listAmountTextBox(),
+                      _listItemAmount(i),
                       _listDeleteIcon(i),
                     ],
-                  )),
-            //}
+                  )
+                ),
+            _listTotal(),
+            SizedBox(
+              child: Container(),
+              height: 56.6+30.0
+            )
           ],
         ),
       ),
+      
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
         onPressed: () => _displayDialog(context),
       ),
+      
     );
   }
-/*
-  _listPriceTextBox(){
-    return Expanded(
-      child: TextField(
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          labelText: 'Preço',
-          prefixText: 'R\$ ',
-          isDense: true
-          //contentPadding: EdgeInsets.all(1.0)
+
+  _listTotal(){
+    double total=0;
+    for(int i=0; i <_lista.length;i++){
+      total+=_lista[i]["price"] * _lista[i]["amount"];
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal:20),
+      child: Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("Total: "),
+            Text(
+              "R\$ "+total.toStringAsFixed(2),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16
+              ),  
+            )
+          ],
         )
       )
     );
   }
 
-  _listAmountTextBox(){
-    return Expanded(
-      child: TextField(
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          labelText: 'Qtd.',
-          isDense: true
-          //contentPadding: EdgeInsets.all(1.0)
-        )
-      ),
-    );
-  }*/
-
   _listItemName(int i){
     return Expanded(
       child: Text(
-       _lista[i]["name"].toString()
-       //_lista[i].toString()
+       _lista[i]["name"].toString(),
+       style: TextStyle(
+         fontWeight: FontWeight.bold
+       )
       ),
     );
   }
 
   _listItemPrice(int i){
-    String text = _lista[i]["price"] != null ? "R\$ "+_lista[i]["price"].toString() : "";
+    String text = _lista[i]["price"] != null ? "R\$ "+_lista[i]["price"].toStringAsFixed(2) : "";
+    return Expanded(
+      child: Text(
+        text
+      ),
+    );
+  }
+
+  _listItemAmount(int i){
+    String text = _lista[i]["amount"] != null ? "x"+_lista[i]["amount"].toString() : "";
     return Expanded(
       child: Text(
         text
@@ -128,19 +131,24 @@ class _MainAppState extends State<MainApp> {
   _listDeleteIcon(int i){
     return IconButton(
       icon: Icon(
-        Icons.delete,
+        Icons.close,
         size: 20.0,
         color: Colors.red[900],
       ),
       onPressed: () {
+        String removedText = _lista[i]["name"];
         setState(() {
           _lista.removeAt(i);
         });
+        _showSnackbar("Removido \""+removedText+"\"","DELETE",Colors.red);
       },
     );
   }
 
   _displayDialog(context) async {
+    if(_amountController.text == ""){
+      _amountController.text = "1";
+    }
     return showDialog(
         context: context,
         builder: (context) {
@@ -148,7 +156,7 @@ class _MainAppState extends State<MainApp> {
             content: Form(
               key: _formKey,
               child: Container(
-                child: Column(//dfdfd
+                child: Column(
                 children: [
                   TextFormField(
                     controller: _itemController,
@@ -158,23 +166,37 @@ class _MainAppState extends State<MainApp> {
                       else
                         return null;
                     },
-                    keyboardType: TextInputType.text,//
+                    keyboardType: TextInputType.text,
                     decoration: InputDecoration(labelText: "Nome do item"),
                   ),
                   TextFormField(
                     controller: _priceController,
-                    validator: (s) {
-                      if (s.isEmpty)
-                        return "Digitjhv.";
-                      else
-                        return null;
-                    },
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: "Preço",
                       prefixText: "R\$ "
                     ),
                   ),
+                  TextFormField(
+                    controller: _amountController,
+                    validator: (s) {
+                      if (s.isEmpty){
+                        return null;
+                      }else{
+                        int val = int.tryParse(s) ?? 1;
+                        if(val < 1){
+                          return "Digite um valor válido";
+                        }
+                        return null;
+                      }
+                    },
+                    keyboardType: TextInputType.number,
+                    //initialValue: "1",
+                    decoration: InputDecoration(
+                      labelText: "Quantidade",
+                      prefixText: "x"
+                    ),
+                  )
                 ],
               )
               )
@@ -189,24 +211,44 @@ class _MainAppState extends State<MainApp> {
               ),
               FlatButton(
                 child: new Text('SAVE'),
-                onPressed: () {//
+                onPressed: () {
                   if (_formKey.currentState.validate()) {
+                    String addedText = "";
                     setState(() {
                       _lista.add({
                         "name": _itemController.text,
-                        "price": double.tryParse(_priceController.text),
-                        "amount": int.tryParse(_amountController.text)
+                        "price": double.tryParse(_priceController.text) ?? 0,
+                        "amount": int.tryParse(_amountController.text) ?? 1
                       });
+                      addedText = _itemController.text;
                       _itemController.text = "";
                       _priceController.text = "";
                       _amountController.text = "";
+                      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
                     });
                     Navigator.of(context).pop();
+                    _showSnackbar("Adicionado \""+addedText+"\"","ADD",Colors.green);
                   }
                 },
               )
             ],
           );
         });
+  }
+
+  _showSnackbar(String contentString, String labelString, Color color){
+    _scaffoldKey.currentState.hideCurrentSnackBar();
+    _scaffoldKey.currentState.showSnackBar(SnackBar(
+      content: Text(
+        contentString
+      ),
+      action: SnackBarAction(
+        label: labelString,
+        textColor: color,
+        onPressed: () {
+          _scaffoldKey.currentState.hideCurrentSnackBar();
+        },
+      ),
+    ));
   }
 }
